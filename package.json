@@ -1,0 +1,22 @@
+{
+  "name": "compra-venta-online",
+  "version": "1.0.0",
+  "description": "Trabajo de Laboratoria de la catedra Sistemas Distribuidos",
+  "main": "",
+  "dependencies": {
+    "amqplib": "^0.5.1",
+    "async": "^2.5.0",
+    "eslint": "^4.4.1",
+    "express": "^4.15.4"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "http://jldevia81:fidelina@fipmgit.no-ip.biz:8102/tallerNodejs/ejerciciosNode.git"
+  },
+  "author": "jldevia",
+  "license": "ISC"
+}
