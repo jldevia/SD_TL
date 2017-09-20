@@ -4,89 +4,172 @@ var amqp = require('amqplib');
 'use strict';
 
 class SesionWeb extends EventEmitter {
-	constructor (sesion_id, usuario_id){
+	constructor (sesion_id, usuario_id, modo){
 		super();
 		this.compra = new Object();
-		this.compra.sesion_id = sesion_id;
+		this.sesion_id = sesion_id;
+		this.modo = modo;
 		this.compra.comprador = usuario_id;
-		this.compra.estado = 'sesionIniciada';
-
+		this.compra.estado = 'SESION_INICIADA';
+		this.logEstado();
+		
 		//Se registran los eventos a escuchar
-		this.on('iniciarCompra', (publ, cant) => this.iniciarCompra(publ, cant));
-		this.on('compraGenerada', (publ_id, cant, compra_id) => this.responderCompraGenerada(publ_id, cant, compra_id));
-		this.on('modoEntregaSeleccionado', (forma) => this.establecerEntrega(forma));
-		this.on('importeCalculado', (sub, costo, total) => this.devolverImporte(sub, costo, total));
-		this.on('pagoEstablecido', (medio, tarjeta) => this.establecerPago(medio, tarjeta));
-		this.on('confirmarCompra', () => this.devolverCompraConfirmada());
+		this.on('iniciarCompra', (data) => this.iniciarCompra(data)); //solicitud del usuario (browser)
+		this.on('nuevaCompra', () => this.informarNuevaCompra());
+		this.on('compraGenerada', (data) => this.procesarCompraGenerada(data));
+		this.on('entregaSeleccionada', (data) => this.procesarEntregaSeleccionada(data)); //solicitud del usuario (browser)
+		this.on('informarEntregaSeleccionada', () => this.informarEntregaSeleccionada());
+		this.on('importeCompraCalculado', (data) => this.procesarImporteCompra(data));
+		this.on('pagoSeleccionado', (data) => this.procesarPagoSeleccionado(data)); //solicitud del usuario (browser)
+		this.on('informarPagoSeleccionado', () => this.informarPagoSeleccionado());
+		this.on('compraConcretada', () => this.informarCompraConcretada());
+		this.on('pagoRechazado', () => this.informarPagoRechazado());
 
 	}
 
-	iniciarCompra (publicacion, cantidad){
-		console.log('[SesionWeb]: Iniciando compra. Sesion: ' + this.sesion_id);
-		this.compra.publicacion = publicacion;
-		this.compra.cantidad = cantidad;
-		
+	iniciarCompra (data){
+		this.compra.publicacion_id = data.publicacion_id;
+		this.compra.cantidad = data.cantidad;
+		if ( this.modo === 'SIMULACION' ) {
+			this.emit('nuevaCompra');
+		}
+	}
+
+	informarNuevaCompra(){
 		//Se publica mensaje "<nuevaCompra>" para servidor de compras
 		var mensaje = new Object();
+		var topico = '.compras.';
 		mensaje.evento = 'nuevaCompra';
-		mensaje.data = this.compra;
-		this.publicarMensaje('.compras.', JSON.stringify(mensaje));
-		this.compra.estado = 'compraIniciada';
+		mensaje.data = {
+			publicacion_id : this.compra.publicacion_id,
+			cantidad : this.compra.cantidad,
+			comprador : this.compra.comprador,
+			sesion_id : this.sesion_id
+		};
+		this.publicarMensaje(topico, JSON.stringify(mensaje));
+		this.compra.estado = 'COMPRA_INICIADA';
+		this.logEstado();
 	}
 
-	responderCompraGenerada(publicacion_id, cantidad, compra_id){
-		this.compra.compra_id = compra_id;
-		this.compra.estado = 'compraGenerada';
+	procesarCompraGenerada(data){
+		this.compra.num_compra = data.num_compra;
+		this.compra.cantidad = data.cantidad;
+		this.compra.estado = 'COMPRA_GENERADA';
+		this.logEstado();
 
 		//enviar como respuesta al browser el 'id' de la compra iniciada
-		console.log('Enviando respuesta al usuario .. compra_id: ' + compra_id, ' - publicacion_id: ' + publicacion_id);
+		
+		console.log('Enviando respuesta al usuario .. compra_id: ' + this.compra.num_compra, ' - publicacion_id: ' 
+					+ this.compra.publicacion_id);
+		
+		if ( this.modo === 'SIMULACION' ) {
+			var modo_entrega = Math.random() > 0.2 ? 'correo' : 'retira';
+			var data2 = {
+				forma_entrega : modo_entrega
+			};
+			this.emit('entregaSeleccionada', data2);
+		}			
 	}
 
-	establecerEntrega (formaEntrega){
-		this.compra.formaEntrega = formaEntrega;
+	procesarEntregaSeleccionada (data){
+		this.compra.formaEntrega = data.forma_entrega;
 
+		if ( this.modo === 'SIMULACION' ) {
+			this.emit('informarEntregaSeleccionada');
+		}
+		this.compra.estado = 'ENTREGA_SELECCIONADA';
+		this.logEstado();
+	}
+
+	informarEntregaSeleccionada(){
 		//Se publica mensaje <<entregaSeleccionada>> para el servidor de compras
+		var topico = '.compras.';
 		var mensaje = new Object();
 		mensaje.evento = 'entregaSeleccionada';
 		mensaje.data = {
-			compra_id : this.compra.compra_id,
-			forma_entrega: formaEntrega
+			num_compra : this.compra.num_compra,
+			sesion_id : this.sesion_id,
+			forma_entrega: this.compra.forma_entrega
 		};
-		this.publicarMensaje('.compras.', JSON.stringify(mensaje));
-		this.compra.estado = 'modoEntregaSeleccionado';
+		this.publicarMensaje(topico, JSON.stringify(mensaje));
 	}
 
-	devolverImporte(subTotal, costoEnvio, importeTotal){
-		this.compra.subTotal = subTotal;
-		this.compra.costoEnvio = costoEnvio;
-		this.compra.importeTotal = importeTotal;
+	procesarImporteCompra(data){
+		this.compra.subTotal = data.sub_total;
+		this.compra.costoEnvio = data.costo_envio;
+		this.compra.importeTotal = data.importe_total;
 
 		//enviar como respuesta al browser el 'id' de la compra iniciada
 		console.log('Enviando respuesta al usuario .. compra_id: ' + this.compra.compra_id
-					+ ' - sub_total: '+ subTotal + ' - costo_envio: '+costoEnvio+ ' - importe_total: '+importeTotal);
+					+ ' - sub_total: '+ this.compra.subTotal + ' - costo_envio: '+ this.compra.costoEnvio+ ' - importe_total: '
+						+ this.compra.importeTotal);
 		
-		this.compra.estado = 'costoCompraCalculado';			
+		this.compra.estado = 'IMPORTE_COMPRA_CALCULADO';
+		this.logEstado();
+		
+		if ( modo === 'SIMULACION') {
+			//Se simula la seleccion del medio de pago por parte del usuario
+			var pago = Math.random() > 0.5 ? 'efectivo' : 'tarjeta';
+			var data2 = {
+				num_compra : this.compra.num_compra,
+				sesion_id : this.sesion_id,
+				medio_pago : pago,
+				num_tarjeta : 'xxx-xxxxx-yyyyy'
+			};
+			this.emit('pagoSeleccionado', data2);
+		}
 	}
 
-	establecerPago(numMedioPago, numTarjeta){
-		this.compra.medioPago = numMedioPago;
-		this.compra.numTarjeta = numTarjeta;
+	procesarPagoEstablecido(data){
+		this.compra.medioPago = data.medio_pago;
+		this.compra.numTarjeta = data.num_tarjeta;
+		this.compra.estado = 'PAGO_ESTABLECIDO';
 
-		//Se publica mensaje <<establecerPago>> para el servidor de compras
+		if ( this.modo === 'SIMULACION' ) {
+			this.emit('informarPagoEstablecido');
+		}
+	}
+
+	informarPagoSeleccionado(){
+		//Se publica mensaje <<pagoEstablecido>> para el servidor de compras
+		var topico = '.compras.';
 		var mensaje = new Object();
-		mensaje.evento = 'establecerPago';
+		mensaje.evento = 'pagoSeleccionado';
 		mensaje.data = {
-			num_medio_pago : numMedioPago,
-			num_tarjeta : numTarjeta
+			num_compra : this.compra.num_compra,
+			sesion_id : this.sesion_id,
+			medio_pago : this.compra.medioPago,
+			num_tarjeta : this.compra.num_tarjeta	
 		};
-		this.publicarMensaje('.compras.', JSON.stringify(mensaje));
-		this.compra.estado = 'medioPagoEstablecido';
+		this.publicarMensaje(topico, JSON.stringify(mensaje));
 	}
 
-	devolverCompraConfirmada(){
-		this.estado = 'compraConfirmada';
-		//enviar como respuesta al browser el aviso de compra confirmada
-		console.log('Enviando respuesta al usuario ... compra_id: ' + this.compra.compra_id + ' CONFIRMADA.');
+	informarCompraConcretada(){
+		this.compra.estado = 'COMPRA_CONCRETADA';
+		this.logEstado();
+		//enviar como respuesta al browser el aviso de compra CONCRETADA
+		console.log('Enviando respuesta al usuario ... compra_id: ' + this.compra.compra_id + ' CONCRETADA.');
+	}
+
+	informarPagoRechazado(){
+		this.compra.estado = 'PAGO_RECHAZADO';
+		this.logEstado();
+		//enviar como respuesta al browser el aviso de PAGO RECHAZADO
+		console.log('------------------------------------------');
+		console.log('Enviando respuesta al usuario ... compra_id: ' + this.compra.compra_id + ' con PAGO RECHAZADO.');
+		console.log('------------------------------------------');
+	}
+
+	logEstado(){
+		console.log('------------------------------------------');
+		console.log('Sesion: ' + this.sesion_id);
+		console.log('N° Compra: ' + this.compra.num_compra);
+		console.log('Estado: ' + this.compra.estado);
+		console.log('------------------------------------------');
+	}
+
+	get estado (){
+		return this.compra.estado;
 	}
 	
 	publicarMensaje(topico, mensaje){
@@ -97,7 +180,10 @@ class SesionWeb extends EventEmitter {
 						var ex = 'compras.topic';
 						chnl.assertExchange(ex, 'topic', {durable: true});
 						chnl.publish(ex, topico, new Buffer(mensaje));
-						console.log(' [x] Enviando %s: \'%s\'', topico, mensaje);
+						console.log('------------------------------------------');
+						console.log('Enviando Mensaje...');
+						console.log('Topico: %s. Mensaje: ', topico, mensaje);
+						console.log('------------------------------------------');
 					})
 					.catch(function(err){
 						console.error('[SesionWeb]: Error Creando canal: ' + err);
@@ -107,10 +193,7 @@ class SesionWeb extends EventEmitter {
 				console.error('[SesionWeb]: Error conectando a servidor de mensajeria: ' + err);
 			});
 	}
-
-	get estado (){
-		return this.compra.estado;
-	}
+	
 }
 
 module.exports = SesionWeb;
