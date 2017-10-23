@@ -1,0 +1,40 @@
+//Data generada por "Servidor Web"
+{
+	"publicacion_id" : "Number",
+	"cantidad" : "Number",
+	"comprador_id" : "Number",
+	"sesion_id" : "Number",
+	"forma_entrega" : "String",
+	"confirmacion" : "String", //Confirmacion por parte del usuario. Compra "aceptada" ó "cancelada"
+	"medio_pago" : "String" 
+}
+
+//Data generada por "Servidor Compras"
+{
+	"num_compras" : "Number"
+}
+
+//Data generada por "Servidor Infracciones"
+{
+	"infraccion_id" : "Number",
+	"resultado_infraccion" : "String", //"conInfraccion" ó "sinInfraccion"
+
+}
+
+//Data generada por "Servidor Envios"
+{
+	"envio_id" : "Number",
+	"costo_envio" : "Number",
+	"fecha_envio" : "Number"
+}
+
+//Data generada por "Servidor Publicaciones"
+{
+	"req_publicacion_id" : "Number",
+}
+
+//Data generada por "Servidor Pagos"
+{
+	"pago_id" : "Number",
+	"pago_rechazado" : "String" //"V" ó "F"
+}

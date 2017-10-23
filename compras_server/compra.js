@@ -1,261 +1,424 @@
 const EventEmitter = require('events').EventEmitter;
-var amqp = require('amqplib');
+var sleep = require('sleep');
 
 'use strict';
 
+//Clase que simula el procesamiento de una solicitud al servidor "Compras"
+//Tal vez seria mejor llamarlo "SolicitudCompras"
 class Compra extends EventEmitter {
-	constructor(){
+	constructor(refServer, data){
 		super();
-		this.estado = 'COMPRA_SIN_GENERAR';
-		this.num_compra = 0;
-		this.comprador = 0;
-		this.publicacion_id = 0;
-		this.cantidad = 0;
-		this.sesion_id = 0; //id de la sesion web del comprador
-		this.conInfraccion = false;
-		this.pagoSeleccionado = false;
 
-		this.logEstado();
-	
-		//Eventos
-		this.on('nuevaCompra', (data) => this.procesarNuevaCompra(data)); //Evento proveniente del browser
-		this.on('compraGenerada', () => this.informarCompraGenerada());
-		this.on('resultadoInfraccion', (data) => this.evaluarResultadoInfraccion(data));
-		this.on('entregaSeleccionada', (data) => this.procesarEntregaSeleccionada(data));
-		this.on('calcularCostoEnvio', () => this.calcularCostoEnvio());
-		this.on('costoEnvioCalculado', (data) => this.procesarCostoEnvio(data));
-		this.on('importeCompraCalculado', () => this.informarImporteCompra());
-		this.on('pagoSeleccionado', (data) => this.procesarPagoSeleccionado(data)); 
-		this.on('compraConfirmada', () => this.continuarProcesamientoCompra());
-		this.on('autorizarPago', () => this.solicitarAutorizacionPago());
-		this.on('autorizacionPago', (data) => this.procesarAutorizacionPago(data) );
-		this.on('agendarEnvio', () => this.solicitarAgendarEnvio());
-		this.on('compraConcretada', () => this.informarCompraConcretada());
-		this.on('pagoRechazado', () => this.informarPagoRechazado());
-	}
-
-	procesarNuevaCompra(data){
+		this.estado = new Object;
+		this.server = refServer;
 		this.num_compra = data.num_compra;
-		this.comprador = data.comprador_id;
-		this.publicacion_id = data.publicacion_id;
-		this.cantidad = data.cantidad;
-		this.sesion_id = data.sesion_id;
-		this.estado = 'COMPRA_GENERADA';
-		this.logEstado();
+		this.data = data;
+		this.orden_evento = 0;
 
-		this.emit('compraGenerada');		
+		this.eventosPendientes = new Array();
+		this.historial_eventos = new Array();
+
+		//Eventos externos
+		this.on('nuevaCompra', (data) => this.informarCompraGenerada(data));
+		this.on('resultadoInfraccion', (data) => this.procesarResultadoInfraccion(data));
+		this.on('entregaSeleccionada', (data) => this.procesarEntregaSeleccionada(data));
+		this.on('costoEnvioCalculado', (data) => this.procesarCostoEnvio(data));
+		this.on('pagoSeleccionado', (data) => this.procesarPagoSeleccionado(data));
+		this.on('confirmacionCompra', (data) => this.procesarConfirmacionCompra(data));
+		this.on('autorizacionPago', (data) => this.procesarAutorizacionPago(data) );
+
+		//Eventos internos
+		//this.on('nuevaCompraIniciada', (data) => this.informarCompraGenerada(data));
+		this.on('seleccionEntregaProcesada', (data) => this.solicitarCostoEnvio(data));
+		this.on('importeCompraCalculado', (data) => this.informarImporteCompra(data));
+		this.on('confirmarCompra', (data) => this.solicitarConfirmacionCompra(data));
+		this.on('compraCancelada', () => this.cancelarCompra()); //Evento emitido internamente en esta clase
+		this.on('autorizarPago', (data) => this.solicitarAutorizacionPago(data));
+		this.on('compraConInfraccion', () => this.infomarCompraRechazada());
+		this.on('pagoRechazado', () => this.informarPagoRechazado());
+		this.on('agendarEnvio', () => this.solicitarAgendarEnvio());		
+		this.on('compraConcretada', (origen) => this.informarCompraConcretada(origen));
 	}
 
-	informarCompraGenerada(){
-		var topico = 'infracciones.web.publicaciones';
+	// iniciarNuevaCompra(data){
+	// 	//Estado actual: INICIANDO_COMPRA
+	// 	this.estado.nombre = 'INICIANDO_COMPRA';
+	// 	this.estado.timestamp = new Date();
+	// 	this.estado.transicion_in = 'nuevaCompra';
+	// 	this.estado.transicion_out = ['nuevaCompraIniciada'];
+	// 	this.logEstado();
+
+	// 	//Se actualiza data
+	// 	this.data = data;
+	// 	//this.data.num_compra = data.num_compra;
+		
+	// 	sleep.sleep(2);
+		
+	// 	this.historial_eventos.push({
+	// 		orden: this.orden_evento++,
+	// 		evento: this.estado.transicion_in
+	// 	});
+		
+	// }
+
+	informarCompraGenerada(data){
+		//Estado actual: INFORMANDO_COMPRA_GENERADA
+		this.estado.nombre = 'INFORMANDO_COMPRA_GENERADA';
+		this.estado.timestamp = new Date();
+		this.estado.transicion_in = 'nuevaCompraIniciada';
+		this.estado.transicion_out = [];
+		this.logEstado();
+		
+		var topico = '.infracciones.web.publicaciones.';
 		var mensaje = new Object();
 		mensaje.evento = 'compraGenerada';
-		mensaje.data = {
-			publicacion_id : this.publicacion_id,
-			cantidad : this.cantidad,
-			num_compra : this.num_compra,
-			comprador_id : this.comprador,
-			sesion_id : this.sesion_id
-		};
+		mensaje.data = this.data;
 
-		this.publicarMensaje(topico, JSON.stringify(mensaje));
+		this.server.publicarMensaje(topico, JSON.stringify(mensaje));
+
+		this.historial_eventos.push({
+			orden: this.orden_evento++,
+			evento: this.estado.transicion_in
+		});
 		
 	}
 
 	procesarEntregaSeleccionada(data){
-		this.forma_entrega = data.forma_entrega;
-		this.estado = 'FORMA_ENTREGA_SELECCIONADA';
+		//Estado actual: PROCESANDO_SELECCION_ENTREGA
+		this.estado.nombre = 'PROCESANDO_SELECCION_ENTREGA';
+		this.estado.timestamp = new Date();
+		this.estado.transicion_in = 'entregaSeleccionada';
+		this.estado.transicion_out = ['seleccionEntregaProcesada'];
 		this.logEstado();
 
-		this.emit('calcularCostoEnvio');
+		//Actualizando data
+		this.data.forma_entrega = data.forma_entrega;
+		
+		this.historial_eventos.push({
+			orden: this.orden_evento++,
+			evento: this.estado.transicion_in
+		});		
 	}
 
-	calcularCostoEnvio(){
-		if (this.forma_entrega === 'correo'){
+	procesarResultadoInfraccion(data){
+		//Estado actual: PROCESANDO_RESULTADO_INFRACCION
+		this.estado.nombre = 'PROCESANDO_RESULTADO_INFRACCION';
+		this.estado.timestamp = new Date();
+		this.estado.transicion_in = 'resultadoInfraccion';
+		this.estado.transicion_out = [];
+		this.logEstado();
+
+		//Se actualiza data
+		this.data.resultado_infraccion = data.resultado_infraccion;
+		
+		sleep.sleep(2);
+
+		this.historial_eventos.push({
+			orden: this.orden_evento++,
+			evento: this.estado.transicion_in
+		});
+	}
+
+	solicitarCostoEnvio(data){
+		//Estado actual: SOLICITANDO_COSTO_ENVIO
+		this.estado.nombre = 'SOLICITANDO_COSTO_ENVIO';
+		this.estado.timestamp = new Date();
+		this.estado.transicion_in = 'seleccionEntregaProcesada';
+		this.estado.transicion_out = [];
+
+		if (this.data.forma_entrega === 'correo'){
 			var mensaje = new Object();
 			var topico = '.envios.';
 			mensaje.evento = 'calcularCostoEnvio';
-			mensaje.data = {
-				num_compra : this.num_compra,
-				publicacion_id : this.publicacion_id,
-				forma_entrega : this.forma_entrega
-			};
-			this.publicarMensaje(topico, JSON.stringify(mensaje));
-			this.estado = 'COSTO_ENVIO_SOLICITADO';
-			this.logEstado();
+			mensaje.data = this.data;
+			this.server.publicarMensaje(topico, JSON.stringify(mensaje));
 		}else{
-			var data = {
-				num_compra : this.num_compra,
-				costo : 0
-			};
-			this.emit('costoEnvioCalculado', data);
-		} 
+			//Si la forma de entrega no es por correo (retiro en persona)
+			//se simula el evento externo "costoEnvioCalculado" para continuar con el procesamiento de la compra
+			this.data.costo_envio = 0;
+			this.estado.transicion_out = ['costoEnvioCalculado'];
+		}
+		this.logEstado();
+
+		this.historial_eventos.push({
+			orden: this.orden_evento++,
+			evento: this.estado.transicion_in
+		});
+
 	}
 
 	procesarCostoEnvio(data){
+		//Estado actual: PROCESANDO_COSTO_ENVIO
+		this.estado.nombre = 'PROCESANDO_COSTO_ENVIO';
+		this.estado.timestamp = new Date();
+		this.estado.transicion_in = 'costoEnvioCalculado';
+		this.estado.transicion_out = ['importeCompraCalculado'];
+		this.logEstado();
+		
+		//Actualizando data
 		var subTotal = Math.random() * 1000;
-		var importeTotal = subTotal + Number(data.costo);
-		this.sub_total = subTotal;
-		this.costo_envio = data.costo;
-		this.importe_total = importeTotal;
+		var importeTotal = subTotal + Number(data.costo_envio);
+		this.data.sub_total = subTotal.toFixed(2);
+		this.data.costo_envio = data.costo_envio;
+		this.data.importe_total = importeTotal.toFixed(2);
 
-		this.emit('importeCalculado');
-		this.estado = 'COSTO_ENVIO_CALCULADO';
+		sleep.sleep(2);
+
+		this.historial_eventos.push({
+			orden: this.orden_evento++,
+			evento: this.estado.transicion_in
+		});
 	}
 
-	informarImporteCompra(){
+	informarImporteCompra(data){
+		//Estado actual: INFORMANDO_IMPORTE_COMPRA
+		this.estado.nombre = 'INFORMANDO_IMPORTE_COMPRA';
+		this.estado.timestamp = new Date();
+		this.estado.transicion_in = 'importeCompraCalculado';
+		this.estado.transicion_out = [];
+		this.logEstado();
+				
 		var topico = '.web.';
 		var mensaje = new Object();
 		mensaje.evento = 'importeCompraCalculado';
-		mensaje.data = {
-			num_compra : this.num_compra,
-			sesion_id : this.sesion_id,
-			sub_total : this.sub_total,
-			costo_envio : this.costo_envio,
-			importe_total : this.importe_total
-		};
-
-		this.publicarMensaje(topico, JSON.stringify(mensaje));
-		this.estado = 'IMPORTE_COMPRA_CALCULADO';
-		this.logEstado();
-	}
-
-	evaluarResultadoInfraccion(data){
-		if ( data.resultado === 'conInfraccion' ){
-			var mensaje = new Object();
-			var topico = '.web.';
-			mensaje.evento = 'compraConInfraccion';
-			mensaje.data = {
-				num_compra : this.num_compra,
-				sesion_id : this.sesion_id,
-				motivo : data.motivo,
-			};
-			this.conInfraccion = true;
-			this.estado = 'COMPRA_CON_INFRACCION';
-			this.logEstado();
-			this.publicarMensaje(topico, JSON.stringify(mensaje));
-
-		} else {
-			this.conInfraccion = false;
-			this.emit('compraConfirmada');
-		}
+		mensaje.data = this.data;
+		this.server.publicarMensaje(topico, JSON.stringify(mensaje));
+		
+		this.historial_eventos.push({
+			orden: this.orden_evento++,
+			evento: this.estado.transicion_in
+		});
 	}
 
 	procesarPagoSeleccionado(data){
-		this.medio_pago = data.medio_pago;
-		this.num_tarjeta = data.num_tarjeta;
-		this.pagoSeleccionado = true;
-		
-		this.emit('compraConfirmada');
-	}
-
-	continuarProcesamientoCompra(){
-		//Si el pago ya fue seleccionado y la compra no tiene infraccion se continua
-		//con el procesamiento de la compra, se solicita "autorizacion de pago]"
-		if ( this.pagoSeleccionado === true && this.conInfraccion === false){
-			this.emit('autorizarPago');
-		}
-	}
-
-	solicitarAutorizacionPago(){
-		var topico = '.pagos.';
-		var mensaje = new Object();
-		mensaje.evento = 'autorizarPago';
-		mensaje.data = {
-			num_compra : this.num_compra,
-			publicacion_id : this.publicacion_id,
-			cantidad: this.cantidad,
-			medio_pago : this.medio_pago,
-			num_tarjeta : this.num_tarjeta
-		};
-
-		this.publicarMensaje(topico, JSON.stringify(mensaje));
-		this.estado = 'AUTORIZANDO_PAGO';
+		//Estado actual: PROCESANDO_PAGO_SELECCIONADO
+		this.estado.nombre = 'PROCESANDO_PAGO_SELECCIONADO';
+		this.estado.timestamp = new Date();
+		this.estado.transicion_in = 'pagoSeleccionado';
+		this.estado.transicion_out = ['confirmarCompra'];
 		this.logEstado();
+
+		this.data.medio_pago = data.medio_pago;
+		
+		this.pagoSeleccionado = true;
+
+		//sleep.sleep(2);
+		
+		this.historial_eventos.push({
+			orden: this.orden_evento++,
+			evento: this.estado.transicion_in
+		});
+	}
+
+	solicitarConfirmacionCompra(data){
+		//Estado actual: SOLICITANDO_CONFIRMACION_COMPRA
+		this.estado.nombre = 'SOLICITANDO_CONFIRMACION_COMPRA';
+		this.estado.timestamp = new Date();
+		this.estado.transicion_in = 'confirmarCompra';
+		this.estado.transicion_out = [];
+		this.logEstado();
+
+		var topico = '.web.';
+		var mensaje = new Object();
+		mensaje.evento = 'confirmarCompra';
+		mensaje.data = this.data;
+		this.server.publicarMensaje(topico, JSON.stringify(mensaje));
+		
+		this.historial_eventos.push({
+			orden: this.orden_evento++,
+			evento: this.estado.transicion_in
+		});
+	
+		sleep.sleep(1);
+	}
+
+	procesarConfirmacionCompra(data){
+		//Se actualiza data
+		this.data.confirmacion = data.confirmacion;
+		
+		//Estado actual: PROCESANDO_CONFIRMACION_COMPRA
+		this.estado.nombre = 'PROCESANDO_CONFIRMACION_COMPRA';
+		this.estado.timestamp = new Date();
+		this.estado.transicion_in = 'confirmacionCompra';
+
+		if (this.data.confirmacion ==='aceptada') {
+			this.estado.transicion_out = ['autorizarPago'];	
+		}else if (this.data.confirmacion === 'cancelada') {
+			this.emit('compraCancelada');	
+		}
+
+		this.logEstado();
+
+		sleep.sleep(2);
+
+		this.historial_eventos.push({
+			orden: this.orden_evento++,
+			evento: this.estado.transicion_in
+		});
+	}
+
+	cancelarCompra(data){
+		//Estado actual: CANCELADA_POR_USUARIO
+		this.estado.nombre = 'CANCELADA_POR_USUARIO';
+		this.estado.timestamp = new Date();
+		this.estado.transicion_in = 'compraCancelada';
+		this.estado.transicion_out = [];
+
+		this.logEstado();
+
+		this.historial_eventos.push({
+			orden: this.orden_evento++,
+			evento: this.estado.transicion_in
+		});
+	}
+
+	solicitarAutorizacionPago(data){
+		//Estado actual: SOLICITANDO_AUTORIZACION_PAGO
+		this.estado.nombre = 'SOLICITANDO_AUTORIZACION_PAGO';
+		this.estado.timestamp = new Date();
+		this.estado.transicion_in = 'autorizarPago';
+		this.estado.transicion_out = [];
+		this.logEstado();
+		
+		if (this.data.resultado_infraccion === 'sinInfraccion'){
+			var topico = '.pagos.';
+			var mensaje = new Object();
+			mensaje.evento = 'autorizarPago';
+			mensaje.data = this.data;
+			this.server.publicarMensaje(topico, JSON.stringify(mensaje));
+		}else if (this.data.resultado_infraccion === 'conInfraccion'){
+			this.emit('compraConInfraccion');	
+		}
+
+		this.historial_eventos.push({
+			orden: this.orden_evento++,
+			evento: this.estado.transicion_in
+		});
+	
 	}
 
 	procesarAutorizacionPago(data){
-		if ( data.rechazado === 'F' ) {
-			this.pagoRechazado = false;
-			this.num_pago = data.num_pago;
-			if ( this.forma_entrega === 'correo') {
-				this.emit('agendarEnvio');
+		//Estado actual: PROCESANDO_AUTORIZACION_PAGO
+		this.estado.nombre = 'PROCESANDO_AUTORIZACION_PAGO';
+		this.estado.timestamp = new Date();
+		this.estado.transicion_in = 'autorizacionPago';
+		
+		//Se actualiza data
+		this.data.pago_id = data.pago_id;
+		this.data.pago_rechazado = data.pago_rechazado;
+		
+		if ( data.pago_rechazado === 'F' ) {
+			if ( this.data.forma_entrega === 'correo') {
+				this.estado.transicion_out = ['agendarEnvio'];	
+			}else if (this.data.forma_entrega === 'retira'){
+				this.estado.transicion_out = [];
+				this.emit('compraConcretada', '[modo_entrega = retira]');
 			}
-			this.emit('compraConcretada');
-			this.estado = 'COMPRA_CONCRETADA';
-			this.logEstado();
-		}else if ( data.rechazado === 'V'){
-			this.pagoRechazado = true;
-			this.motivoRechazo = data.motivo;
-			this.estado = 'PAGO_RECHAZADO';
-			this.logEstado();
+		}else if ( data.pago_rechazado === 'V'){
+			this.estado.transicion_out = [];
 			this.emit('pagoRechazado');
 		}
+
+		this.logEstado();
+
+		this.historial_eventos.push({
+			orden: this.orden_evento++,
+			evento: this.estado.transicion_in
+		});
 	}
 
 	solicitarAgendarEnvio(){
+		//Estado actual: SOLICITANDO_AGENDAR_ENVIO
+		this.estado.nombre = 'SOLICITANDO_AGENDAR_ENVIO';
+		this.estado.timestamp = new Date();
+		this.estado.transicion_in = 'agendarEnvio';
+		this.estado.transicion_out = [];
+		this.logEstado();
+		
 		var topico = '.envios.';
 		var mensaje = new Object();
 		mensaje.evento = 'agendarEnvio';
-		mensaje.data = {
-			num_compra : this.num_compra,
-			publicacion_id : this.publicacion_id,
-			cantidad : this.cantidad,
-			costo : this.costo_envio
-		};
-		this.publicarMensaje(topico, JSON.stringify(mensaje));
+		mensaje.data = this.data;
+		this.server.publicarMensaje(topico, JSON.stringify(mensaje));
+
+		this.historial_eventos.push({
+			orden: this.orden_evento++,
+			evento: this.estado.transicion_in
+		});
+		
+		this.emit('compraConcretada', '[agendarEnvioSolicitado]');
 	}
 
-	informarCompraConcretada(){
+	informarCompraConcretada(origen){
+		//Estado actual: COMPRA_CONCRETADA
+		this.estado.nombre = 'COMPRA_CONCRETADA';
+		this.estado.timestamp = new Date();
+		this.estado.transicion_in = origen;
+		this.estado.transicion_out = [];
+		this.logEstado();
+		
 		var topico = '.web.';
 		var mensaje = new Object();
 		mensaje.evento = 'compraConcretada';
-		mensaje.data = {
-			num_compra : this.num_compra,
-			sesion_id : this.sesion_id
-		};
-		this.publicarMensaje(topico, JSON.stringify(mensaje));
+		mensaje.data = this.data;
+		this.server.publicarMensaje(topico, JSON.stringify(mensaje));
+
+		this.historial_eventos.push({
+			orden: this.orden_evento++,
+			evento: this.estado.transicion_in
+		});
 	}
 
 	informarPagoRechazado(){
+		//Estado actual: PAGO_RECHAZADO
+		this.estado.nombre = 'PAGO_RECHAZADO';
+		this.estado.timestamp = new Date();
+		this.estado.transicion_in = '[pago_rechadado = V]';
+		this.estado.transicion_out = [];
+		this.logEstado();
+		
 		var topico = '.web.';
 		var mensaje = new Object();
 		mensaje.evento = 'pagoRechazado'; 
-		mensaje.data = {
-			num_compra : this.num_compra,
-			sesion_id : this.sesion_id,
-			motivo : this.motivo 
-		};
-		this.publicarMensaje(topico, JSON.stringify(mensaje));
+		mensaje.data = this.data;
+		this.server.publicarMensaje(topico, JSON.stringify(mensaje));
+
+		this.historial_eventos.push({
+			orden: this.orden_evento++,
+			evento: this.estado.transicion_in
+		});
+	}
+
+	//Se informa compra rechazada por "Infraccion"
+	infomarCompraRechazada(){
+		//Estado actual: RECHAZADA_POR_INFRACCION
+		this.estado.nombre = 'RECHAZADA_POR_INFRACCION';
+		this.estado.timestamp = new Date();
+		this.estado.transicion_in = '[resultado_infraccion = conInfraccion]';
+		this.estado.transicion_out = [];
+		this.logEstado();
+
+		var topico = '.web.';
+		var mensaje = new Object();
+		mensaje.evento = 'compraRechazadaPorInfraccion'; 
+		mensaje.data = this.data;
+		this.server.publicarMensaje(topico, JSON.stringify(mensaje));
+
+		this.historial_eventos.push({
+			orden: this.orden_evento++,
+			evento: this.estado.transicion_in
+		});
+
 	}
 
 	logEstado(){
 		console.log('------------------------------------------');
 		console.log('N° Compra: ' + this.num_compra);
-		console.log('Estado: ' + this.estado);
+		console.log('Estado: ' + this.estado.nombre);
 		console.log('------------------------------------------');
-	}
-
-	publicarMensaje(topico, mensaje){
-		amqp.connect('amqp://localhost')
-			.then(function(con){
-				con.createChannel()
-					.then(function(chnl){
-						var ex = 'compras.topic';
-						chnl.assertExchange(ex, 'topic', {durable: true});
-						chnl.publish(ex, topico, new Buffer(mensaje));
-						console.log('------------------------------------------');
-						console.log('Enviando Mensaje...');
-						console.log('Topico: %s. Mensaje: ', topico, mensaje);
-						console.log('------------------------------------------');
-					})
-					.catch(function(err){
-						console.error('[Compra]: Error Creando canal: ' + err);
-					});
-			})
-			.catch( function(err){
-				console.error('[Compra]: Error conectando a servidor de mensajeria: ' + err);
-			});
+		var msg = 'N° Compra: ' + this.num_compra;
+		msg = msg + '\\nEstado: ' + this.estado.nombre;
+		this.server.logMonitor(msg);
 	}
 
 }

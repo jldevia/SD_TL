@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>SD: Trabajo de Laboratorio</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- jQuery UI -->
+    <link href="https://code.jquery.com/ui/1.10.3/themes/redmond/jquery-ui.css" rel="stylesheet" media="screen">
+
+    <!-- Bootstrap -->
+    <link href="bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <!-- styles -->
+    <link href="css/styles.css" rel="stylesheet">
+    
+  </head>
+  <body>
+  	<div class="header">
+	     <div class="container">
+	        <div class="row">
+	           <div class="col-md-5">
+	              <!-- Logo -->
+	              <div class="logo">
+						<h1 style="color:white">Simulación Automática</h1>
+	              </div>
+	           </div>
+	        </div>
+	     </div>
+	</div>
+	<div id="app" class="page-content">
+    	<div class="row">
+		  <div class="col-md-2">
+		  	<div class="sidebar content-box" style="display: block;">
+                <ul class="nav">
+                    <!-- Main menu -->
+                    <li><a href="index.html"><i class="glyphicon glyphicon-home"></i> Inicio</a></li>
+					<li><a href="#" v-on:click="ejecutar"><i class="glyphicon glyphicon-play"></i> Ejecutar</a></li>
+                </ul>
+             </div>
+		  </div>
+		  <div class="col-md-10">
+
+		  	<div class="row">
+  				<div class="col-md-6">
+  					<div class="content-box" id= "pnl_web">
+		  				<div class="panel-heading">
+							<div class="panel-title">Servidor Web</div>
+							<div class="panel-options">
+								<a href="#" data-rel="collapse"><i class="glyphicon glyphicon-refresh"></i></a>
+								<a href="#" data-rel="reload"><i class="glyphicon glyphicon-cog"></i></a>
+							</div>
+						</div>
+		  				<div class="panel-body">
+							  <textarea id="" cols="74" rows="10" readonly style="resize: none"
+							  			:value="web_server"></textarea>
+		  				</div>
+		  			</div>
+  				</div>
+  				<div class="col-md-6">
+  					<div class="content-box" id="pnl_compras">
+		  				<div class="panel-heading">
+							<div class="panel-title">Servidor Compras</div>
+							<div class="panel-options">
+								<a href="#" data-rel="collapse"><i class="glyphicon glyphicon-refresh"></i></a>
+								<a href="#" data-rel="reload"><i class="glyphicon glyphicon-cog"></i></a>
+							</div>
+						</div>
+		  				<div class="panel-body">
+							<textarea id="" cols="74" rows="10" readonly style="resize: none"
+								:value="compras_server"></textarea>
+						</div>
+		  			</div>
+  				</div>
+  			</div>
+
+  			<div class="row">
+  				<div class="col-md-6">
+  					<div class="content-box" id="pnl_publicaciones">
+		  				<div class="panel-heading">
+							<div class="panel-title">Servidor Publicaciones</div>
+							<div class="panel-options">
+								<a href="#" data-rel="collapse"><i class="glyphicon glyphicon-refresh"></i></a>
+								<a href="#" data-rel="reload"><i class="glyphicon glyphicon-cog"></i></a>
+							</div>
+						</div>
+		  				<div class="panel-body">
+							<textarea id="" cols="74" rows="10" readonly style="resize: none"
+							:value="publicaciones_server"></textarea>
+		  				</div>
+		  			</div>
+  				</div>
+  				<div class="col-md-6">
+  					<div class="content-box" id="pnl_infracciones">
+		  				<div class="panel-heading">
+							<div class="panel-title">Servidor Infracciones</div>
+							<div class="panel-options">
+								<a href="#" data-rel="collapse"><i class="glyphicon glyphicon-refresh"></i></a>
+								<a href="#" data-rel="reload"><i class="glyphicon glyphicon-cog"></i></a>
+							</div>
+						</div>
+		  				<div class="panel-body">
+							<textarea id="" cols="74" rows="10" readonly style="resize: none"
+							:value="infracciones_server"></textarea>
+		  				</div>
+		  			</div>
+  				</div>
+  			</div>
+
+  			<div class="row">
+  				<div class="col-md-6">
+  					<div class="content-box" id="pnl_envios">
+		  				<div class="panel-heading">
+							<div class="panel-title">Servidor Envios</div>
+							<div class="panel-options">
+								<a href="#" data-rel="collapse"><i class="glyphicon glyphicon-refresh"></i></a>
+								<a href="#" data-rel="reload"><i class="glyphicon glyphicon-cog"></i></a>
+							</div>
+						</div>
+		  				<div class="panel-body">
+							<textarea id="" cols="74" rows="10" readonly style="resize: none"
+								:value="envios_server"></textarea>
+		  				</div>
+		  			</div>
+  				</div>
+  				<div class="col-md-6">
+  					<div class="content-box" id="pnl_pagos">
+		  				<div class="panel-heading">
+							<div class="panel-title">Servidor Pagos</div>
+							
+							<div class="panel-options">
+								<a href="#" data-rel="collapse"><i class="glyphicon glyphicon-refresh"></i></a>
+								<a href="#" data-rel="reload"><i class="glyphicon glyphicon-cog"></i></a>
+							</div>
+						</div>
+		  				<div class="panel-body">
+							<textarea id="" cols="74" rows="10" readonly style="resize: none"
+								:value="pagos_server"></textarea>
+		  				</div>
+		  			</div>
+  				</div>
+  			</div>
+		  </div>
+		</div>
+    </div>
+
+	<footer>
+		<div class="container">
+			<div class="copy text-center">
+				Universidad Nacional de la Patagonia "San Juan Bosco" /
+				<a href='http://www.madryn.unp.edu.ar/index.php/facultad-ingenieria'> Sede Puerto Madryn - FI</a>
+			</div>
+
+		</div>
+	</footer>
+
+    <link href="vendors/datatables/dataTables.bootstrap.css" rel="stylesheet" media="screen">
+
+    <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+    <script src="https://code.jquery.com/jquery.js"></script>
+    <!-- jQuery UI -->
+    <script src="https://code.jquery.com/ui/1.10.3/jquery-ui.js"></script>
+    <!-- Include all compiled plugins (below), or include individual files as needed -->
+    <script src="bootstrap/js/bootstrap.min.js"></script>
+
+	<!-- Scripts del proyecto -->
+	<script src="./js/vue.min.js"></script>
+	<script src="./js/socket.io.js"></script>
+	<script src="./js/appSimulacionAUT.js"></script>
+  </body>
+</html>

@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>SD: Trabajo de Laboratorio</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Bootstrap -->
+    <link href="bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <!-- styles -->
+    <link href="css/styles.css" rel="stylesheet">
+    
+  </head>
+  <body>
+  	<div class="header">
+	     <div class="container">
+	        <div class="row">
+	           <div class="col-md-5">
+	              <!-- Logo -->
+	              <div class="logo">
+	                 <h1 style="color:white">Simulación Compra-Venta Online</h1>
+	              </div>
+	           </div>
+	        </div>
+	     </div>
+	</div>
+
+    <div class="page-content">
+    	<div class="row">
+		  <div class="col-md-2">
+		  	<div class="sidebar content-box" style="display: block;">
+                <ul class="nav">
+                    <!-- Main menu -->
+                    <li><a href="tables.html"><i class="glyphicon glyphicon-list"></i> Automática</a></li>
+                    <li><a href="forms.html"><i class="glyphicon glyphicon-tasks"></i> Paso a Paso</a></li>
+                </ul>
+             </div>
+		  </div>
+		  <div class="col-md-10">
+				<div class="row">
+					<div class="col-md-12 panel-primary">
+						<div class="content-box-header panel-heading">
+							<div class="panel-title ">Trabajo de Laboratorio - Catedra: Sistemas Distribuidos (Año: 2017)</div>
+						</div>
+						<div class="content-box-large box-with-header">
+							<img src="./images/logo_facu.png" height="250" width="225" class="center-block">
+							<div>
+								<h3>Descripción del problema:</h3>
+								<div>
+										Un sitio de venta online (como mercado libre1 o ebay2) maneja información sobre productos,
+										compradores, vendedores, compras, pagos y envíos. El sistema está integrado por varios servidores que a su vez interactuan con sistemas de otras organizaciones, como ser de tarjetas de crédito
+										y de empresas de correo.
+										Nos enfocamos en el proceso de negocio que corresponde a la compra de productos. El proceso inicia cuando el cliente indica que desea comprar un producto.
+										Inmediatamente el departamento de infracciones comienza una revisión del chat entre el vendedor
+										y el comprador en búsqueda de violaciones al reglamento del sitio. El departamento de ventas,
+										a su vez, reserva el producto para asegurar el cumplimiento de las condiciones de venta en caso
+										de que la compra sea exitosa. Luego el comprador elige la forma de entrega y de pago. En caso
+										de que el comprador decida que el producto se le envíe por correo, el departamento de envíos
+										calcula el costo del envío antes de que el comprador elija la forma de pago. Subsecuentemente
+										se le informa al comprador un resumen de las condiciones de compra, y se le solicita confirmar
+										la misma. Si la confirma, y no hay infracción, el departamento de pagos procede a efectivizar
+										el pago (utilizando los servicios provistos por los medios de pagos contratados). Una vez que el
+										pago es confirmado, el departamento de envíos agenda el envío con la empresa de correo elegida.
+										<br>
+										<br>
+										<img src="./images/Diagrama_Actividad.png" class="center-block" height="650"
+											width="600">
+										<br>
+										<br>
+										El diseño del sistema para soportar la compra de productos se muestra en la siguiente figura.
+										Existen tres tipos de servidores: de lógica del negocio, de mensajería, y web. Cada servidor de lógica
+										del negocio se dedica a una de las siguientes funciones: compras, pagos, reglamentos, productos,
+										clientes, envíos. La interacción entre los servidores web y de logica del negocio es mediada por un
+										servidor de mensajería, que aloja las colas de mensajes a través de las cuales el proceso se lleva
+										adelante. Un servidor web permite a los clientes acceder a la funcionalidad de compra/venta.
+										Todos los servidores persisten regularmente su estado. En el caso de que un servidor caiga, el
+										mismo puede re-iniciarse a su estado persistido.	
+										<br>
+										<br>
+										<img src="./images/Arquitectura_sistema.png" class="center-block"
+											height="460" width="570">	
+
+								</div>
+							</div>
+						<br /><br />
+						</div>
+					</div>
+				</div>
+			</div>
+		  
+		</div>
+    </div>
+
+    <footer>
+         <div class="container">
+                     <div class="copy text-center">
+			   Universidad Nacional de la Patagonia "San Juan Bosco" / 
+			   <a href='http://www.madryn.unp.edu.ar/index.php/facultad-ingenieria'> Sede Puerto Madryn - FI</a>
+            </div>
+            
+         </div>
+    </footer>
+
+    <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+    <script src="https://code.jquery.com/jquery.js"></script>
+    <!-- Include all compiled plugins (below), or include individual files as needed -->
+    <script src="bootstrap/js/bootstrap.min.js"></script>
+    <script src="js/custom.js"></script>
+  </body>
+</html>
