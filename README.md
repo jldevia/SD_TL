@@ -1,5 +1,8 @@
 <p align="center"><img src="/logo_unpsjb.png"></p>
+
+
 ## Asignatura: Sistemas Distribuidos ##
+
 ----------
 
 ### Trabajo de Laboratorio. Año: 2017. ###
