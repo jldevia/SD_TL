@@ -1,5 +1,4 @@
-
-<p align="center">![logo](https://github.com/jldevia/SD_TL/blob/master/logo_unpsjb.png)</p>
+<p align="center"><img src="/logo.png"></p>
 > ## Asignatura: Sistemas Distribuidos ##
 > 
 
