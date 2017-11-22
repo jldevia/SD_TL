@@ -15,8 +15,6 @@ class Infraccion extends EventEmitter {
 
 		this.eventosPendientes = new Array();
 
-		this.historial_eventos = new Array();
-
 		//Eventos Externos
 		this.on('compraGenerada', (data) => this.resolverInfraccion(data));
 		
@@ -65,11 +63,6 @@ class Infraccion extends EventEmitter {
 		this.data.resultado_infraccion = result;
 
 		//sleep.sleep(2);
-
-		this.historial_eventos.push({
-			orden : 2,
-			evento : this.estado.transicion_in 
-		});
 	}
 
 	informarResultado(data){
@@ -85,15 +78,10 @@ class Infraccion extends EventEmitter {
 		var mensaje = new Object();
 		mensaje.evento = 'resultadoInfraccion';
 		mensaje.data = this.data;
-		this.server.publicarMensaje(topico, JSON.stringify(mensaje));
+		this.server.publicarMensaje(topico, mensaje);
 
 		this.emit(this.estado.transicion_out[0]);
 		//sleep.sleep(2);
-
-		this.historial_eventos.push({
-			orden : 3,
-			evento : this.estado.transicion_in
-		});
 	}
 
 	finalizarVerificionInfraccion(data){
@@ -103,15 +91,8 @@ class Infraccion extends EventEmitter {
 		this.estado.timestamp = new Date();
 		this.estado.transicion_in = 'resultadoInformado';
 		this.estado.transicion_out = null;
-
-		//sleep.sleep(2);
 		
-		this.historial_eventos.push({
-			orden : 4,
-			evento : this.estado.transicion_in 
-		});
 	}
-	
 }
 
 module.exports = Infraccion;

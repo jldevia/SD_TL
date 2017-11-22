@@ -8,7 +8,6 @@
     "async": "^2.5.0",
     "eslint": "^4.4.1",
     "express": "^4.15.4",
-    "mongoose": "^4.11.11",
     "sleep": "^5.1.1",
     "socket.io": "^2.0.3",
     "underscore": "^1.8.3"

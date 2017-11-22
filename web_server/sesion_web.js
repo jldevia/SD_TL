@@ -10,12 +10,10 @@ class SesionWeb extends EventEmitter {
 		this.estado = new Object();
 		this.sesion_id = sesion_id;
 		this.usuario_id = usuario_id;
-		this.orden_evento = 0;
 		this.server = refServer;
 		
 		this.eventosPendientes = new Array();
-		this.historial_eventos = new Array();
-		
+
 		//Eventos externos
 		this.on('iniciarCompra', (data) => this.iniciarCompra(data)); //solicitud del usuario (browser)
 		this.on('compraGenerada', (data) => this.procesarCompraGenerada(data));
@@ -42,20 +40,12 @@ class SesionWeb extends EventEmitter {
 		this.estado.timestamp = new Date();
 		this.estado.transicion_in = 'iniciarCompra';
 		this.estado.transicion_out = ['nuevaCompraIniciada'];
-		
-		
+
 		//Actualizando data
 		this.data = data;
 		this.data.sesion_id = this.sesion_id;
-		this.data.num_compra = this.sesion_id; //Se asigna la sesion_id como num_compra
+		this.data.num_compra = Math.ceil(Math.random() * 100); //N° de compra aleatorio entre 0 y 100.
 		this.data.comprador_id = this.usuario_id;
-		
-		//sleep.sleep(3);
-
-		this.historial_eventos.push({
-			orden: this.orden_evento++,
-			evento: this.estado.transicion_in
-		});
 		
 		this.logEstado();
 	}
@@ -67,19 +57,13 @@ class SesionWeb extends EventEmitter {
 		this.estado.transicion_in = 'nuevaCompraIniciada';
 		this.estado.transicion_out = [];
 		
-		
 		//Se publica mensaje "<nuevaCompra>" para servidor de compras
 		var mensaje = new Object();
 		var topico = '.compras.';
 		mensaje.evento = 'nuevaCompra';
 		mensaje.data = this.data;
-		this.server.publicarMensaje(topico, JSON.stringify(mensaje));
-		
-		this.historial_eventos.push({
-			orden: this.orden_evento++,
-			evento: this.estado.transicion_in
-		});		
-		
+		this.server.publicarMensaje(topico, mensaje);
+			
 	}
 
 	procesarCompraGenerada(data){
@@ -88,6 +72,7 @@ class SesionWeb extends EventEmitter {
 		this.estado.timestamp = new Date();
 		this.estado.transicion_in = 'compraGenerada';
 		this.estado.transicion_out = ['entregaSeleccionada'];
+
 		
 		//Se actualiza data
 		this.data = data;		
@@ -95,14 +80,7 @@ class SesionWeb extends EventEmitter {
 		//enviar como respuesta al browser el 'id' de la compra iniciada
 		console.log('[Web_server] - Nueva Compra generada N°: ' + this.data.num_compra);
 		this.server.logMonitor('[Web_server] - Nueva Compra generada N°: ' + this.data.num_compra);
-
-		this.historial_eventos.push({
-			orden: this.orden_evento++,
-			evento: this.estado.transicion_in
-		});
-
-		sleep.sleep(3);
-						
+	
 	}
 
 	procesarEntregaSeleccionada (data){
@@ -111,7 +89,7 @@ class SesionWeb extends EventEmitter {
 		this.estado.timestamp = new Date();
 		this.estado.transicion_in = 'entregaSeleccionada';
 		this.estado.transicion_out = ['entregaSeleccionadaProcesada'];
-				
+
 		//Se actualiza data
 		var entrega;
 		if (!data.forma_entrega) {
@@ -120,13 +98,6 @@ class SesionWeb extends EventEmitter {
 			entrega = data.forma_entrega;
 		}
 		this.data.forma_entrega = entrega;
-
-		sleep.sleep(3);
-
-		this.historial_eventos.push({
-			orden: this.orden_evento++,
-			evento: this.estado.transicion_in
-		});
 	}
 
 	informarEntregaSeleccionada(data){
@@ -135,18 +106,14 @@ class SesionWeb extends EventEmitter {
 		this.estado.timestamp = new Date();
 		this.estado.transicion_in = 'entregaSeleccionadaProcesada';
 		this.estado.transicion_out = [];
-		
+
 		//Se publica mensaje <<entregaSeleccionada>> para el servidor de compras
 		var topico = '.compras.';
 		var mensaje = new Object();
 		mensaje.evento = 'entregaSeleccionada';
 		mensaje.data = this.data;
-		this.server.publicarMensaje(topico, JSON.stringify(mensaje));
-
-		this.historial_eventos.push({
-			orden: this.orden_evento++,
-			evento: this.estado.transicion_in
-		});
+		this.server.publicarMensaje(topico, mensaje);
+	
 	}
 
 	procesarImporteCompra(data){
@@ -155,7 +122,7 @@ class SesionWeb extends EventEmitter {
 		this.estado.timestamp = new Date();
 		this.estado.transicion_in = 'importeCompraCalculado';
 		this.estado.transicion_out = ['pagoSeleccionado'];
-		
+
 		//Actualizando data
 		this.data = data;
 
@@ -167,11 +134,6 @@ class SesionWeb extends EventEmitter {
 		this.server.logMonitor('Enviando respuesta al usuario .. compra_id: ' + this.data.num_compra
 								+ ' - sub_total: '+ this.data.sub_total + ' - costo_envio: '+ this.data.costo_envio + ' - importe_total: '
 									+ this.data.importe_total);						
-		
-		this.historial_eventos.push({
-			orden: this.orden_evento++,
-			evento: this.estado.transicion_in
-		});
 	}
 
 	procesarPagoSeleccionado(data){
@@ -180,7 +142,7 @@ class SesionWeb extends EventEmitter {
 		this.estado.timestamp = new Date();
 		this.estado.transicion_in = 'pagoSeleccionado';
 		this.estado.transicion_out = ['pagoSeleccionadoProcesado'];
-		
+
 		//Se actualiza data
 		var medio;
 		if ( !data.medio_pago) {
@@ -190,12 +152,6 @@ class SesionWeb extends EventEmitter {
 		}
 
 		this.data.medio_pago = medio;
-
-		this.historial_eventos.push({
-			orden: this.orden_evento++,
-			evento: this.estado.transicion_in
-		});
-		
 	}
 
 	informarPagoSeleccionado(){
@@ -210,12 +166,8 @@ class SesionWeb extends EventEmitter {
 		var mensaje = new Object();
 		mensaje.evento = 'pagoSeleccionado';
 		mensaje.data = this.data;
-		this.server.publicarMensaje(topico, JSON.stringify(mensaje));
+		this.server.publicarMensaje(topico, mensaje);
 
-		this.historial_eventos.push({
-			orden: this.orden_evento++,
-			evento: this.estado.transicion_in
-		});
 	}
 
 	solicitarConfirmacionCompra(data){
@@ -230,11 +182,7 @@ class SesionWeb extends EventEmitter {
 		var msg = 'Confirmacion compra N° ' + this.data.num_compra + '\n';
 		msg = msg + 'Confirmacion (aceptada/cancelada): ';
 		this.server.logMonitor(msg);
-
-		this.historial_eventos.push({
-			orden: this.orden_evento++,
-			evento: this.estado.transicion_in
-		});
+	
 	}
 
 	procesarConfirmacionCompra(data){
@@ -258,17 +206,12 @@ class SesionWeb extends EventEmitter {
 		var msg = new Object();
 		msg.evento = 'confirmacionCompra';
 		msg.data = this.data;
-		this.server.publicarMensaje(topico, JSON.stringify(msg));
+		this.server.publicarMensaje(topico, msg);
 
 		if (this.data.confirmacion === 'cancelada') {
 			//Se establece estado de la sesion en "COMPRA_CANCELADA"
 			this.emit('estadoFinal', 'COMPRA_CANCELADA', 'compraConfirmada');
 		}
-
-		this.historial_eventos.push({
-			orden: this.orden_evento++,
-			evento: this.estado.transicion_in
-		});
 	}
 
 	informarCompraRechazada(data){
@@ -284,13 +227,6 @@ class SesionWeb extends EventEmitter {
 
 		this.server.logMonitor('La compra N° ' + this.data.num_compra + 
 								' ha sido rechazada por una Infraccion');			
-
-		sleep.sleep(3);
-
-		this.historial_eventos.push({
-			orden: this.orden_evento++,
-			evento: this.estado.transicion_in
-		});
 
 		//Se pasa automaticamente al estado final de la sesion
 		this.emit('estadoFinal', 'COMPRA_RECHAZADA', 'compraRechazadaPorInfraccion');
@@ -311,14 +247,6 @@ class SesionWeb extends EventEmitter {
 		this.server.logMonitor('La compra N° ' + this.data.num_compra + 
 								' ha sido finalizada de forma exitosa. Felicitaciones por su nueva compra!!!');			
 		
-		sleep.sleep(3);
-
-		this.historial_eventos.push({
-		
-			orden: this.orden_evento++,
-			evento: this.estado.transicion_in
-		});
-
 		//Se pasa automaticamente al estado final de la sesion
 		this.emit('estadoFinal', 'COMPRA_CONCRETADA', 'compraConcretada');
 	}
@@ -334,26 +262,22 @@ class SesionWeb extends EventEmitter {
 		console.log('El pago de la compra N° ' + this.data.num_compra + ' ha sido rechazado. Compra cancelada por el sitio');
 		this.server.logMonitor('El pago de la compra N° ' + this.data.num_compra + ' ha sido rechazado. Compra cancelada por el sitio');
 		
-		sleep.sleep(3);
-		
-		this.historial_eventos.push({
-			orden: this.orden_evento++,
-			evento: this.estado.transicion_in
-		});
-
 		//Se pasa automaticamente al estado final de la sesion
 		this.emit('estadoFinal', 'PAGO_RECHAZADO', 'pagoRechazado');
 	}
 
 	establecerEstadoFinal(newEstado, origen){
-		//Estado actual: INFORMANDO_COMPRA_CONCRETADA
+		//Estado actual: COMPRA_CANCELADA || COMPRA_RECHAZADA || COMPRA_CONCRETADA || PAGO_RECHAZADO
 		this.estado.nombre = newEstado;
 		this.estado.timestamp = new Date();
 		this.estado.transicion_in = origen;
 		this.estado.transicion_out = [];
 
+		this.server.emit('compraFinalizada', newEstado);
+
 		this.logEstado();
 
+		this.sesion_id = 0;
 	}
 
 	logEstado(){
@@ -367,7 +291,7 @@ class SesionWeb extends EventEmitter {
 		this.server.logMonitor(msg);
 
 	}
-
+	
 }
 
 module.exports = SesionWeb;

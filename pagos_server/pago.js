@@ -12,7 +12,6 @@ class Pago extends EventEmitter{
 		this.data.pago_id = id;
 
 		this.eventosPendientes = new Array();
-		this.historial_eventos = new Array();
 		
 		//Eventos externos
 		this.on('autorizarPago', (data) => this.resolverAutorizacion(data));
@@ -59,11 +58,6 @@ class Pago extends EventEmitter{
 			}
 		}
 		this.data.pago_rechazado = rechazado;
-
-		//sleep.sleep(2);
-
-		//se registra el evento disparado en el historial de eventos "sucedidos"
-		this.historial_eventos.push(this.estado.transicion_in);
 	}
 
 	informarResultado(data){
@@ -78,13 +72,11 @@ class Pago extends EventEmitter{
 		var msg = new Object();
 		msg.evento = 'autorizacionPago';
 		msg.data = this.data;
-		this.server.publicarMensaje(topico, JSON.stringify(msg));
+		this.server.publicarMensaje(topico, msg);
 
 		//sleep.sleep(2);
 		this.emit(this.estado.transicion_out[0]);
 
-		//se registra el evento disparado en el historial de eventos "sucedidos"
-		this.historial_eventos.push(this.estado.transicion_in);
 	}
 
 	finalizarPago(data){
@@ -94,12 +86,7 @@ class Pago extends EventEmitter{
 		this.estado.transicion_in = 'resultadoInformado';
 		this.estado.transicion_out = [];
 
-		sleep.sleep(2);
-
-		//se registra el evento disparado en el historial de eventos "sucedidos"
-		this.historial_eventos.push(this.estado.transicion_in);
 	}
-
 }
 
 module.exports = Pago;

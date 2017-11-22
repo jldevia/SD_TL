@@ -1,4 +1,5 @@
 const { exec } = require('child_process');
+var _ = require('underscore');
 
 var Util = function (){
 
@@ -37,10 +38,44 @@ var Util = function (){
 		ejecutarProceso(comando);
 	}
 
+	function getProximosEventos(eventos){
+		var result = '';
+		_.forEach(eventos, (item) => {
+			result = result + item.evento + ', ';
+		});
+		if ( result.length > 1 ) {
+			result = result.slice(0, -2);
+		}else{
+			result = 'Sin eventos pendientes';
+		}
+		return result;
+	}
+
+	function validarInput(arg){
+		var key_words = ['compras', 'web', 'infracciones', 'pagos', 'publicaciones', 'envios',
+			'resultado_infraccion', 'conInfraccion', 'sinInfraccion', 
+			'forma_entrega', 'correo', 'retira',
+			'medio_pago', 'efectivo', 'tarjeta',
+			'confirmacion','aceptada', 'cancelada'];
+		
+		return key_words.includes(arg);					
+	}
+
+	function actualizarReloj(clock1, clock2){
+		clock1.forEach((valor, index) => {
+			if (clock2[index] > valor){
+				clock1[index] = clock2[index];
+			}
+		});
+	}
+
 	return {
 		startServers : startServers,
 		startServer : startServer,
 		execSimulacion : execSimulacion,
+		getProximosEventos : getProximosEventos,
+		validarInput : validarInput,
+		actualizarReloj : actualizarReloj,
 		formatearMsg : function (msg){
 			var cadena = '--------------------------\\n';
 			cadena = cadena + msg;

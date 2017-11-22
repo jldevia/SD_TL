@@ -1,0 +1,33 @@
+{
+	"compras": [{
+			"usuario_id": 1,
+			"publicacion_id": 10,
+			"cantidad": 1
+		},
+		{
+			"usuario_id": 2,
+			"publicacion_id": 15,
+			"cantidad": 2
+		},
+		{
+			"usuario_id": 4,
+			"publicacion_id": 20,
+			"cantidad": 5
+		},
+		{
+			"usuario_id": 3,
+			"publicacion_id": 18,
+			"cantidad": 3
+		},
+		{
+			"usuario_id": 6,
+			"publicacion_id": 12,
+			"cantidad": 4
+		},
+		{
+			"usuario_id": 8,
+			"publicacion_id": 10,
+			"cantidad": 3
+		}
+	]
+}

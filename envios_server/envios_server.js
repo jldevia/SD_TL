@@ -4,46 +4,74 @@ const EventEmitter = require('events').EventEmitter;
 const Envio = require('./envio');
 const Stepper = require('../stepperEngine');
 const util = require('../util');
+const utilDB = require('../utilDB');
+var snapshot = require('../snapshot');
 
 //Clase que simula la ejecucion del servidor de "Envios"
 class ServidorEnvios extends EventEmitter{
 	constructor(modo){
 		super();
+		this.urlDB = 'mongodb://localhost:27017/envios_db';
 
 		this.modo = modo || 'AUTOMATICO';
 		this.prox_num_envio = 1;
-		this.stepper = new Stepper(this.modo);
+		this.stepper = new Stepper(this.modo, 3);
+
+		//Snapshot
+		this.snapshot = snapshot();
+		this.snapshot.origen_corte = 'envios';
+		this.cantidad_fin_corte = 5;
+		
 
 		//DB in memory: Envios en proceso o procesados
 		this.envios = new Array();
 
 		this.on('nuevoEnvio', (msg) => this.nuevoEnvio(msg));
-		
+		this.on('corte', (data) => this.procesarCorte(data));
+				
 		//socket de comunicacion con el monitor
 		this.socket = require('socket.io-client')('http://localhost:17852', {
 			query : {
 				origen : 'envios'
-			}
+			},
+			transports : ['websocket']
 		});
 
 		this.socket.on('getEstadoCompra', (data)=> this.informarEstado(data));
 		this.socket.on('getCompras', (data) => this.informarComprasEnProceso(data));
 		this.socket.on('avanzarCompra', (data) => this.avanzarProcesamientoCompra(data));
 		this.socket.on('finalizarEjecucion', (data) => this.bajarServidor(data));
+		this.socket.on('corte', () => this.iniciarCorte());
 
-		setInterval(this.guardarEstado, 60000);
-		
+		//Se guarda estado cada un minuto
+		// setInterval( function(url, registros){
+		// 	utilDB.guardarEstado(url, registros);
+		// }, 60000, this.urlDB, this.envios);
 	}
 
 	//Metodos de tratamiento de eventos del Monitor
 	//**************************************************
 	informarEstado(data){
 		var obj = this.getEnvio(data.num_compra);
-		var resp = {
-			num_compra : obj? obj.num_compra: '---------',
-			estado : obj? obj.estado.nombre : '---------',
-			prox_eventos : obj? obj.eventosPendientes : '---------'	
-		};
+		var resp;
+		if (!obj){
+			resp = {
+				num_compra : 'Compra Inexistente',
+				estado : '-------------------',
+				prox_eventos : '-------------------',
+				data : '-------------------',
+				reloj : '-------------------'
+			};
+		}else{
+			resp = {
+				num_compra : obj.data.num_compra? obj.data.num_compra: 'Compra Inexistente',
+				estado : obj.estado.nombre? obj.estado.nombre : 'Sin Estado',
+				prox_eventos : obj.eventosPendientes? util.getProximosEventos(obj.eventosPendientes) : 'Sin Eventos Pendientes',
+				data : obj.data,
+				reloj : this.stepper.clock	
+			};
+		}
+		
 
 		this.socket.emit('estadoCompra', resp);
 	}
@@ -58,11 +86,34 @@ class ServidorEnvios extends EventEmitter{
 	
 	avanzarProcesamientoCompra(data){
 		var obj = this.getEnvio(data.num_compra);
-		this.stepper.emit('pasoManual', obj, data);
+		this.stepper.emit('pasoManual', obj, data.arg);
 	}
 	
 	bajarServidor(data){
 		process.exit(0);
+	}
+
+	//Snapshot
+	iniciarCorte(){
+		console.log('Iniciando corte en envios ...');
+		
+		this.snapshot.setEstadoProceso(this.envios);
+		this.snapshot.en_corte = true;
+		this.snapshot.estado_clock = this.stepper.clock.slice(0);
+		//console.log('snapshot iniciado: ' + JSON.stringify(this.snapshot));
+		var topico = '.compras.infracciones.pagos.publicaciones.web.';
+		var msg = {
+			evento : 'corte',
+		};
+		this.publicarMensaje(topico, msg);
+
+		//Se encolan los mensajes pendientes de procesamiento
+		// _.forEach(this.envios, (item) =>{
+		// 	_.forEach(item.eventosPendientes, (element) => {
+		// 		this.snapshot.encolarMensaje(JSON.parse(JSON.stringify(element)));
+		// 		console.log('Mensaje encolado: ' + JSON.stringify(element));
+		// 	});
+		// });
 	}
 	//**************************************************//
 
@@ -90,8 +141,36 @@ class ServidorEnvios extends EventEmitter{
 		this.socket.emit('logMensaje', data);
 	}
 
-	guardarEstado(){
-		null;
+	//Snapshot
+	procesarCorte(msg){
+		if (!this.snapshot.en_corte){
+			this.iniciarCorte();
+			this.snapshot.origen_corte = msg.origen;
+		}else{
+			this.snapshot.guardarEstadoChannel(msg.origen);
+		}
+		this.snapshot.contador++;
+		//Se verifica fin de corte
+		if (this.snapshot.contador == this.cantidad_fin_corte) {
+			this.informarSnapshot();
+			//Persistir estado del proceso y canales en la BD
+			//utilDB.guardarEstado(this.urlDB, this.snapshot.estado_proceso);
+			
+			//reiniciar snapshot
+			this.snapshot = snapshot();
+		}
+	}
+
+	//Snapshot
+	informarSnapshot(){
+		var msg = {
+			origen : 'envios',
+			estado_proceso : this.snapshot.estado_proceso,
+			estado_channels : this.snapshot.getAllChannels(),
+			clock : this.snapshot.estado_clock
+		};
+
+		this.socket.emit('logSnapshot', msg);
 	}
 
 	publicarMensaje(topico, mensaje){
@@ -102,7 +181,9 @@ class ServidorEnvios extends EventEmitter{
 					.then(function(chnl){
 						var ex = 'compras.topic';
 						chnl.assertExchange(ex, 'topic', {durable: true});
-						chnl.publish(ex, topico, new Buffer(mensaje));
+						mensaje.clock = obj.stepper.clock;
+						mensaje.origen = 'envios';
+						chnl.publish(ex, topico, new Buffer(JSON.stringify(mensaje)));
 						console.log('------------------------------------------');
 						console.log('Mensaje publicado:');
 						console.log('Topico: %s\nMensaje: ', topico, mensaje);
@@ -146,9 +227,19 @@ amqp.connect('amqp://localhost')
 					
 					if (mensaje.evento === 'calcularCostoEnvio'){
 						server.emit('nuevoEnvio', mensaje);
+					}else if (mensaje.evento == 'corte'){
+						//Snapshot
+						server.emit('corte', mensaje);
 					}else{
 						var obj = server.getEnvio(mensaje.data.num_compra);
 						server.stepper.emit('paso', obj, mensaje.evento, mensaje.data);
+						//Se actualiza reloj vectorial
+						util.actualizarReloj(server.stepper.clock, mensaje.clock);
+						//Snapshot
+						if (server.snapshot.en_corte){
+							server.snapshot.encolarMensaje(JSON.parse(JSON.stringify(mensaje)));
+							
+						}
 					}
 					chn.ack(msg);
 				}, {noAck: false})

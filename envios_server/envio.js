@@ -1,5 +1,4 @@
 const EventEmitter = require('events').EventEmitter;
-var sleep = require('sleep');
 
 // Clase que simula el procesamiento de un envio para una compra
 class Envio extends EventEmitter{
@@ -13,8 +12,6 @@ class Envio extends EventEmitter{
 		this.data.envio_id = id; 
 
 		this.eventosPendientes = new Array();
-
-		this.historial_eventos = new Array();
 
 		//Eventos externos
 		this.on('calcularCostoEnvio', (data) => this.calcularCosto(data));
@@ -50,11 +47,6 @@ class Envio extends EventEmitter{
 		//Costo calculado aleatoriamente entre $1 y $500
 		var costo = Math.random() * (500 - 1) + 1;
 		this.data.costo_envio = costo.toFixed(2);
-
-		//sleep.sleep(2);
-		
-		//se registra el evento disparado en el historial de eventos "sucedidos"
-		this.historial_eventos.push(this.estado.transicion_in);
 	}
 
 	informarCosto(data){
@@ -69,10 +61,7 @@ class Envio extends EventEmitter{
 		var msg = new Object();
 		msg.evento = 'costoEnvioCalculado';
 		msg.data = this.data;
-		this.server.publicarMensaje(topico, JSON.stringify(msg));
-
-		//se registra el evento disparado en el historial de eventos "sucedidos"
-		this.historial_eventos.push(this.estado.transicion_in);
+		this.server.publicarMensaje(topico, msg);
 	}
 
 	esperar(data){
@@ -90,7 +79,7 @@ class Envio extends EventEmitter{
 		this.estado.timestamp = new Date();
 		this.estado.transicion_in = 'agendarEnvio';
 		this.estado.transicion_out = ['envioAgendado'];
-		
+
 		//Acutalizo data del envio
 		this.data = data;
 		this.data.fecha_envio = this.sumarDias(new Date, 7);
@@ -100,13 +89,7 @@ class Envio extends EventEmitter{
 		var msg = new Object();
 		msg.evento = 'enviarProducto';
 		msg.data = this.data;
-		this.server.publicarMensaje(topico, JSON.stringify(msg));
-		
-		//sleep.sleep(2);
-		this.emit(this.estado.transicion_out[0]);
-
-		//se registra el evento disparado en el historial de eventos "sucedidos"
-		this.historial_eventos.push(this.estado.transicion_in);
+		this.server.publicarMensaje(topico, msg);
 	}
 
 	finalizarEnvio(data){
@@ -115,11 +98,7 @@ class Envio extends EventEmitter{
 		this.estado.timestamp = new Date();
 		this.estado.transicion_in = 'envioAgendado';
 		this.estado.transicion_out = [];
-
-		sleep.sleep(2);
-
-		//se registra el evento disparado en el historial de eventos "sucedidos"
-		this.historial_eventos.push(this.estado.transicion_in);
+		
 	}
 	
 	//funcion privada
@@ -127,6 +106,7 @@ class Envio extends EventEmitter{
 		fecha.setDate(fecha.getDate() + dias);
 		return fecha;
 	}
+	
 }
 
 module.exports = Envio;

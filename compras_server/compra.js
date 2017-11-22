@@ -13,11 +13,9 @@ class Compra extends EventEmitter {
 		this.server = refServer;
 		this.num_compra = data.num_compra;
 		this.data = data;
-		this.orden_evento = 0;
-
+		
 		this.eventosPendientes = new Array();
-		this.historial_eventos = new Array();
-
+		
 		//Eventos externos
 		this.on('nuevaCompra', (data) => this.informarCompraGenerada(data));
 		this.on('resultadoInfraccion', (data) => this.procesarResultadoInfraccion(data));
@@ -54,11 +52,6 @@ class Compra extends EventEmitter {
 		
 	// 	sleep.sleep(2);
 		
-	// 	this.historial_eventos.push({
-	// 		orden: this.orden_evento++,
-	// 		evento: this.estado.transicion_in
-	// 	});
-		
 	// }
 
 	informarCompraGenerada(data){
@@ -68,19 +61,13 @@ class Compra extends EventEmitter {
 		this.estado.transicion_in = 'nuevaCompraIniciada';
 		this.estado.transicion_out = [];
 		this.logEstado();
-		
+
 		var topico = '.infracciones.web.publicaciones.';
 		var mensaje = new Object();
 		mensaje.evento = 'compraGenerada';
 		mensaje.data = this.data;
-
-		this.server.publicarMensaje(topico, JSON.stringify(mensaje));
-
-		this.historial_eventos.push({
-			orden: this.orden_evento++,
-			evento: this.estado.transicion_in
-		});
 		
+		this.server.publicarMensaje(topico, mensaje);
 	}
 
 	procesarEntregaSeleccionada(data){
@@ -91,13 +78,11 @@ class Compra extends EventEmitter {
 		this.estado.transicion_out = ['seleccionEntregaProcesada'];
 		this.logEstado();
 
+		//sleep.sleep(3);
+
 		//Actualizando data
 		this.data.forma_entrega = data.forma_entrega;
 		
-		this.historial_eventos.push({
-			orden: this.orden_evento++,
-			evento: this.estado.transicion_in
-		});		
 	}
 
 	procesarResultadoInfraccion(data){
@@ -108,15 +93,10 @@ class Compra extends EventEmitter {
 		this.estado.transicion_out = [];
 		this.logEstado();
 
+		//sleep.sleep(2);
+
 		//Se actualiza data
 		this.data.resultado_infraccion = data.resultado_infraccion;
-		
-		sleep.sleep(2);
-
-		this.historial_eventos.push({
-			orden: this.orden_evento++,
-			evento: this.estado.transicion_in
-		});
 	}
 
 	solicitarCostoEnvio(data){
@@ -131,7 +111,7 @@ class Compra extends EventEmitter {
 			var topico = '.envios.';
 			mensaje.evento = 'calcularCostoEnvio';
 			mensaje.data = this.data;
-			this.server.publicarMensaje(topico, JSON.stringify(mensaje));
+			this.server.publicarMensaje(topico, mensaje);
 		}else{
 			//Si la forma de entrega no es por correo (retiro en persona)
 			//se simula el evento externo "costoEnvioCalculado" para continuar con el procesamiento de la compra
@@ -139,11 +119,6 @@ class Compra extends EventEmitter {
 			this.estado.transicion_out = ['costoEnvioCalculado'];
 		}
 		this.logEstado();
-
-		this.historial_eventos.push({
-			orden: this.orden_evento++,
-			evento: this.estado.transicion_in
-		});
 
 	}
 
@@ -154,20 +129,16 @@ class Compra extends EventEmitter {
 		this.estado.transicion_in = 'costoEnvioCalculado';
 		this.estado.transicion_out = ['importeCompraCalculado'];
 		this.logEstado();
-		
+
 		//Actualizando data
 		var subTotal = Math.random() * 1000;
-		var importeTotal = subTotal + Number(data.costo_envio);
+		var importeTotal = subTotal + Number(data.costo_envio || this.data.costo_envio);
 		this.data.sub_total = subTotal.toFixed(2);
-		this.data.costo_envio = data.costo_envio;
+		this.data.costo_envio = data.costo_envio || this.data.costo_envio;
 		this.data.importe_total = importeTotal.toFixed(2);
 
 		sleep.sleep(2);
 
-		this.historial_eventos.push({
-			orden: this.orden_evento++,
-			evento: this.estado.transicion_in
-		});
 	}
 
 	informarImporteCompra(data){
@@ -177,17 +148,12 @@ class Compra extends EventEmitter {
 		this.estado.transicion_in = 'importeCompraCalculado';
 		this.estado.transicion_out = [];
 		this.logEstado();
-				
+
 		var topico = '.web.';
 		var mensaje = new Object();
 		mensaje.evento = 'importeCompraCalculado';
 		mensaje.data = this.data;
-		this.server.publicarMensaje(topico, JSON.stringify(mensaje));
-		
-		this.historial_eventos.push({
-			orden: this.orden_evento++,
-			evento: this.estado.transicion_in
-		});
+		this.server.publicarMensaje(topico, mensaje);
 	}
 
 	procesarPagoSeleccionado(data){
@@ -201,13 +167,6 @@ class Compra extends EventEmitter {
 		this.data.medio_pago = data.medio_pago;
 		
 		this.pagoSeleccionado = true;
-
-		//sleep.sleep(2);
-		
-		this.historial_eventos.push({
-			orden: this.orden_evento++,
-			evento: this.estado.transicion_in
-		});
 	}
 
 	solicitarConfirmacionCompra(data){
@@ -222,14 +181,14 @@ class Compra extends EventEmitter {
 		var mensaje = new Object();
 		mensaje.evento = 'confirmarCompra';
 		mensaje.data = this.data;
-		this.server.publicarMensaje(topico, JSON.stringify(mensaje));
+		this.server.publicarMensaje(topico, mensaje);
 		
 		this.historial_eventos.push({
 			orden: this.orden_evento++,
 			evento: this.estado.transicion_in
 		});
 	
-		sleep.sleep(1);
+		//sleep.sleep(2);
 	}
 
 	procesarConfirmacionCompra(data){
@@ -249,12 +208,6 @@ class Compra extends EventEmitter {
 
 		this.logEstado();
 
-		sleep.sleep(2);
-
-		this.historial_eventos.push({
-			orden: this.orden_evento++,
-			evento: this.estado.transicion_in
-		});
 	}
 
 	cancelarCompra(data){
@@ -265,11 +218,6 @@ class Compra extends EventEmitter {
 		this.estado.transicion_out = [];
 
 		this.logEstado();
-
-		this.historial_eventos.push({
-			orden: this.orden_evento++,
-			evento: this.estado.transicion_in
-		});
 	}
 
 	solicitarAutorizacionPago(data){
@@ -279,22 +227,17 @@ class Compra extends EventEmitter {
 		this.estado.transicion_in = 'autorizarPago';
 		this.estado.transicion_out = [];
 		this.logEstado();
-		
-		if (this.data.resultado_infraccion === 'sinInfraccion'){
+
+		if (this.data.resultado_infraccion == 'sinInfraccion'){
 			var topico = '.pagos.';
 			var mensaje = new Object();
 			mensaje.evento = 'autorizarPago';
 			mensaje.data = this.data;
-			this.server.publicarMensaje(topico, JSON.stringify(mensaje));
-		}else if (this.data.resultado_infraccion === 'conInfraccion'){
+			this.server.publicarMensaje(topico, mensaje);
+		}else if (this.data.resultado_infraccion == 'conInfraccion'){
 			this.emit('compraConInfraccion');	
 		}
 
-		this.historial_eventos.push({
-			orden: this.orden_evento++,
-			evento: this.estado.transicion_in
-		});
-	
 	}
 
 	procesarAutorizacionPago(data){
@@ -306,25 +249,21 @@ class Compra extends EventEmitter {
 		//Se actualiza data
 		this.data.pago_id = data.pago_id;
 		this.data.pago_rechazado = data.pago_rechazado;
-		
-		if ( data.pago_rechazado === 'F' ) {
-			if ( this.data.forma_entrega === 'correo') {
+
+		if ( data.pago_rechazado == 'F' ) {
+			if ( this.data.forma_entrega == 'correo') {
 				this.estado.transicion_out = ['agendarEnvio'];	
-			}else if (this.data.forma_entrega === 'retira'){
+			}else if (this.data.forma_entrega == 'retira'){
 				this.estado.transicion_out = [];
 				this.emit('compraConcretada', '[modo_entrega = retira]');
 			}
-		}else if ( data.pago_rechazado === 'V'){
+		}else if ( data.pago_rechazado == 'V'){
 			this.estado.transicion_out = [];
 			this.emit('pagoRechazado');
 		}
 
 		this.logEstado();
 
-		this.historial_eventos.push({
-			orden: this.orden_evento++,
-			evento: this.estado.transicion_in
-		});
 	}
 
 	solicitarAgendarEnvio(){
@@ -334,18 +273,13 @@ class Compra extends EventEmitter {
 		this.estado.transicion_in = 'agendarEnvio';
 		this.estado.transicion_out = [];
 		this.logEstado();
-		
+
 		var topico = '.envios.';
 		var mensaje = new Object();
 		mensaje.evento = 'agendarEnvio';
 		mensaje.data = this.data;
-		this.server.publicarMensaje(topico, JSON.stringify(mensaje));
+		this.server.publicarMensaje(topico, mensaje);
 
-		this.historial_eventos.push({
-			orden: this.orden_evento++,
-			evento: this.estado.transicion_in
-		});
-		
 		this.emit('compraConcretada', '[agendarEnvioSolicitado]');
 	}
 
@@ -356,17 +290,13 @@ class Compra extends EventEmitter {
 		this.estado.transicion_in = origen;
 		this.estado.transicion_out = [];
 		this.logEstado();
-		
+
 		var topico = '.web.';
 		var mensaje = new Object();
 		mensaje.evento = 'compraConcretada';
 		mensaje.data = this.data;
-		this.server.publicarMensaje(topico, JSON.stringify(mensaje));
+		this.server.publicarMensaje(topico, mensaje);
 
-		this.historial_eventos.push({
-			orden: this.orden_evento++,
-			evento: this.estado.transicion_in
-		});
 	}
 
 	informarPagoRechazado(){
@@ -376,17 +306,13 @@ class Compra extends EventEmitter {
 		this.estado.transicion_in = '[pago_rechadado = V]';
 		this.estado.transicion_out = [];
 		this.logEstado();
-		
+
 		var topico = '.web.';
 		var mensaje = new Object();
 		mensaje.evento = 'pagoRechazado'; 
 		mensaje.data = this.data;
-		this.server.publicarMensaje(topico, JSON.stringify(mensaje));
+		this.server.publicarMensaje(topico, mensaje);
 
-		this.historial_eventos.push({
-			orden: this.orden_evento++,
-			evento: this.estado.transicion_in
-		});
 	}
 
 	//Se informa compra rechazada por "Infraccion"
@@ -402,12 +328,7 @@ class Compra extends EventEmitter {
 		var mensaje = new Object();
 		mensaje.evento = 'compraRechazadaPorInfraccion'; 
 		mensaje.data = this.data;
-		this.server.publicarMensaje(topico, JSON.stringify(mensaje));
-
-		this.historial_eventos.push({
-			orden: this.orden_evento++,
-			evento: this.estado.transicion_in
-		});
+		this.server.publicarMensaje(topico, mensaje);
 
 	}
 

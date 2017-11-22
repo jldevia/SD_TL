@@ -14,12 +14,8 @@ class Publicacion extends EventEmitter{
 		this.data = data;
 		this.data.req_publicacion_id = id;
 
-		this.orden_eventos = 0;
-
 		this.eventosPendientes = new Array();
 		
-		this.historial_eventos = new Array();
-
 		//Eventos externos
 		this.on('compraGenerada', (data) => this.reservarProducto(data));
 		this.on('resultadoInfraccion', (data) => this.procesarResultadoInfraccion(data));
@@ -57,6 +53,7 @@ class Publicacion extends EventEmitter{
 
 	reservarProducto(data){
 		//Estado actual: RESERVANDO_PRODUCTO
+		var obj = this;
 		this.estado.nombre = 'RESERVANDO_PRODUCTO';
 		this.estado.timestamp = new Date();
 		this.estado.transicion_in = 'solicitudIniciada';
@@ -66,17 +63,11 @@ class Publicacion extends EventEmitter{
 		PublicationModel.reservarProducto(this.data.publicacion_id, this.data.cantidad, function(err, publi){
 			if (err) {
 				console.error('[Publicaciones_server]: Error al reservar producto: '+ err);
-				this.server.logMonitor('[Publicaciones_server]: Error al reservar producto: '+ err);
+				obj.server.logMonitor('[Publicaciones_server]: Error al reservar producto: '+ err);
 			}else{
 				console.log('[Publicaciones_server]: Producto reservado: ' + publi);
-				this.server.logMonitor('[Publicaciones_server]: Producto reservado: ' + publi);
+				obj.server.logMonitor('[Publicaciones_server]: Producto reservado: ' + publi);
 			}
-		});
-
-		//se registra nuevo evento en el historico
-		this.historial_eventos.push({
-			orden : this.orden_eventos++,
-			evento: this.estado.transicion_in 
 		});
 
 	}
@@ -89,16 +80,12 @@ class Publicacion extends EventEmitter{
 		this.estado.transicion_out = [];
 
 		sleep.sleep(2);
-
-		//se registra nuevo evento en el historico
-		this.historial_eventos.push({
-			orden : this.orden_eventos++,
-			evento: origen
-		});
+	
 	}
 
 	procesarResultadoInfraccion(data){
 		//Estado actual: PROCESANDO_RESULTADO_INFRACCION
+		var obj = this;
 		this.estado.nombre = 'PROCESANDO_RESULTADO_INFRACCION';
 		this.estado.timestamp = new Date();
 		this.estado.transicion_in = 'resultadoInfraccion';
@@ -106,29 +93,23 @@ class Publicacion extends EventEmitter{
 
 		//Se actualiza data
 		this.data = data;
-		
+
 		if ( data.resultado === 'conInfraccion' ){
 			PublicationModel.liberarProducto(data.publicacion_id, data.cantidad, function(err, publi){
 				if (err) {
 					console.error('[Publicaciones_server]: Error al liberar producto: '+ err);
-					this.server.logMonitor('[Publicaciones_server]: Error al liberar producto: '+ err);
+					obj.server.logMonitor('[Publicaciones_server]: Error al liberar producto: '+ err);
 				}else{
 					console.log('[Publicaciones_server]: Producto liberado: ' + publi);
-					this.server.logMonitor('[Publicaciones_server]: Producto liberado: ' + publi);
+					obj.server.logMonitor('[Publicaciones_server]: Producto liberado: ' + publi);
 				}
 			});
 		}
-
-		//se registra nuevo evento en el historico
-		this.historial_eventos.push({
-			orden : this.orden_eventos++,
-			evento: this.estado.transicion_in
-		});
-
 	}
 
 	procesarAutorizacionPago(data){
 		//Estado actual: PROCESANDO_AUTORIZACION_PAGO
+		var obj = this;
 		this.estado.nombre = 'PROCESANDO_AUTORIZACION_PAGO';
 		this.estado.timestamp = new Date();
 		this.estado.transicion_in = 'autorizacionPago';
@@ -140,24 +121,19 @@ class Publicacion extends EventEmitter{
 			PublicationModel.liberarProducto(data.publicacion_id, data.cantidad, function(err, publi){
 				if (err) {
 					console.error('[Publicaciones_server]: Error al liberar producto: '+ err);
-					this.logMonitor('[Publicaciones_server]: Error al liberar producto: '+ err);
+					obj.server.logMonitor('[Publicaciones_server]: Error al liberar producto: '+ err);
 				}else{
 					console.log('[Publicaciones_server]: Producto liberado: ' + publi);
-					this.logMonitor('[Publicaciones_server]: Producto liberado: ' + publi);
+					obj.server.logMonitor('[Publicaciones_server]: Producto liberado: ' + publi);
 				}
 			});
 		}
-
-		//se registra nuevo evento en el historico
-		this.historial_eventos.push({
-			orden : this.orden_eventos++,
-			evento: this.estado.transicion_in
-		});
 
 	}
 
 	procesarEnvioProducto(data){
 		//Estado actual: PROCESANDO_ENVIO_PRODUCTO
+		var obj = this;
 		this.estado.nombre = 'PROCESANDO_ENVIO_PRODUCTO';
 		this.estado.timestamp = new Date();
 		this.estado.transicion_in = 'enviarProducto';
@@ -169,20 +145,14 @@ class Publicacion extends EventEmitter{
 		PublicationModel.enviarProducto(data.publicacion_id, data.cantidad, function(err, publi){
 			if (err) {
 				console.error('[Publicaciones_server]: Error al enviar producto: '+ err);
-				this.logMonitor('[Publicaciones_server]: Error al enviar producto: '+ err);
+				obj.server.logMonitor('[Publicaciones_server]: Error al enviar producto: '+ err);
 			}else{
 				console.log('[Publicaciones_server]: Producto enviado: ' + publi);
-				this.logMonitor('[Publicaciones_server]: Producto enviado: ' + publi);
+				obj.server.logMonitor('[Publicaciones_server]: Producto enviado: ' + publi);
 			}
 		});
 
 		this.emit(this.estado.transicion_out[0]);
-
-		//se registra nuevo evento en el historico
-		this.historial_eventos.push({
-			orden : this.orden_eventos++,
-			evento: this.estado.transicion_in
-		});
 
 	}
 
@@ -192,15 +162,8 @@ class Publicacion extends EventEmitter{
 		this.estado.timestamp = new Date();
 		this.estado.transicion_in = 'envioProductoProcesado';
 		this.estado.transicion_out = [];
-
-		//se registra nuevo evento en el historico
-		this.historial_eventos.push({
-			orden : this.orden_eventos++,
-			evento: this.estado.transicion_in
-		});
-
+				
 	}
-
 }// fin de la clase
 
 module.exports = Publicacion;
